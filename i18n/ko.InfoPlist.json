@@ -1,0 +1,9 @@
+{
+  "CFBundleDisplayName": "{APP}",
+  "CFBundleName": "{APP}",
+  "NSAccessibilityUsageDescription": "지금 앞에 있는 창의 제목을 읽어 대화에 함께 붙일 때 써요.",
+  "NSAppleEventsUsageDescription": "터미널로 바로 가고, 메일을 보내고, Music과 Spotify를 제어할 때 써요.",
+  "NSContactsUsageDescription": "말로 이메일 준비를 부탁하면 연락처에서 이메일 주소를 찾아요.",
+  "NSMicrophoneUsageDescription": "채팅에서 말로 메시지를 입력할 때 마이크를 써요.",
+  "NSSpeechRecognitionUsageDescription": "말한 내용을 채팅 메시지 글자로 바꿀 때 써요."
+}
