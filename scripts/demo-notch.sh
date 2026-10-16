@@ -7,6 +7,7 @@
 #   scripts/demo-notch.sh --keep               # 끝나도 시연 앱을 켜 둔다(설정·기록도 되돌리지 않고, 시연 앱은 실제 세션 신호를 못 받는다)
 #   scripts/demo-notch.sh --lang en            # 화면 글자 언어(기본 ko). 맥·앱 설정은 바꾸지 않고 이번 실행에만 쓴다
 #   DEMO_APP=/Applications/뚝딱.app scripts/demo-notch.sh   # 다른 사본으로 시연(기본 build/뚝딱.app)
+#   DEMO_CWD=~/projects/my-app scripts/demo-notch.sh        # 카드에 보이는 작업 폴더 이름을 바꾼다(기본 ~/projects/notch-app)
 #   scripts/demo-notch.sh --scene multi-error  # 세션 두 개 중 하나가 오류로 멈추는 장면(약 40초, 배지·소리 확인용)
 #   scripts/demo-notch.sh --snap 폴더           # 장면마다 노치 둘레(720×60pt)를 사진으로 남긴다(확인용. 노치 옆 메뉴 막대도 찍히니 밖에 내보내지 않는다)
 #
@@ -139,7 +140,7 @@ sleep 5.5   # 인사 장면(약 4.6초)이 끝날 때까지
 
 # ---------------------------------------------------------------- 4. 신호 넣기
 SID="ttdemo-$(date +%s)"
-CWD="$HOME/projects/notch-app"
+CWD="${DEMO_CWD:-$HOME/projects/notch-app}"   # 노치 카드에 보이는 작업 폴더(이름만 쓴다. 홍보 녹화 땐 DEMO_CWD로 바꾼다)
 send() {   # send '{"hook_event_name": ..., ...}' [세션 꼬리표]  (session_id·cwd·터미널 정보는 여기서 붙인다)
   python3 -I -c '
 import json, sys

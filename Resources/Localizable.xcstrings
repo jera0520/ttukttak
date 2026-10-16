@@ -1001,6 +1001,7 @@
         }
       }
     },
+    "Answer questions and permissions from terminal sessions in the notch" : {},
     "Apple Music" : {},
     "Applies on next launch" : {
       "localizations" : {
@@ -10366,6 +10367,7 @@
         }
       }
     },
+    "Open Claude" : {},
     "Open Codex" : {
       "localizations" : {
         "ar" : {
@@ -19667,6 +19669,7 @@
         }
       }
     },
+    "Show Codex plan in the notch" : {},
     "Show island with shortcut" : {
       "localizations" : {
         "ar" : {
