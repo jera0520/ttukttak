@@ -54,10 +54,15 @@ struct IslandContainer: View {
         let greetingActive = state.mode == .expanded && state.view == .greeting
 
         return ZStack(alignment: .topLeading) {
-            // Black island shape
-            IslandShape(width: islandWidth, height: islandHeight,
-                        cornerRadius: cornerRadius, topRadius: islandTopRadius)
-                .fill(Color.black)
+            // Island shape: black in the notch; on a screen without one, the chosen card look
+            if state.islandFloats {
+                FloatingCardBackground(theme: state.floatingSkin, width: islandWidth, height: islandHeight,
+                                       cornerRadius: cornerRadius, topRadius: islandTopRadius)
+            } else {
+                IslandShape(width: islandWidth, height: islandHeight,
+                            cornerRadius: cornerRadius, topRadius: islandTopRadius)
+                    .fill(Color.black)
+            }
 
             // Content
             if state.mode == .expanded {
@@ -146,6 +151,10 @@ struct IslandContainer: View {
                        value: state.tasks.first(where: { $0.id == state.focusId })?.pillBadge == .error)
         }
         .frame(width: islandWidth, height: islandHeight, alignment: .topLeading)
+        .environment(\.floatingPalette, FloatingPalette.of(state.floatingSkin))
+        // Floating island: only the open card is shown; at rest the pet lives in the menu bar.
+        .opacity(state.islandFloats && state.mode != .expanded ? 0 : 1)
+        .animation(.easeInOut(duration: 0.2), value: state.islandFloats && state.mode != .expanded)
         .onChange(of: state.mode) { oldMode, newMode in
             let shrinking = modeOrder(newMode) < modeOrder(oldMode)
             let anim = shrinking ? closeEase : openSpring
@@ -153,7 +162,7 @@ struct IslandContainer: View {
                                     progress: state.uploadProgress,
                                     nw: state.notchWidth, nh: state.notchHeight)
             let cr  = newMode == .expanded ? IslandConst.expandedCorner : IslandConst.roundedCorner
-            let tr: CGFloat = 0
+            let tr = topRadius(for: newMode)
             withAnimation(anim) {
                 islandWidth      = w
                 islandHeight     = (newMode == .expanded && state.view == .prompt) ? chatPromptHeight : h
@@ -176,6 +185,12 @@ struct IslandContainer: View {
                 islandHeight = newView == .prompt ? chatPromptHeight : h
             }
         }
+        .onChange(of: FloatingLayout.sessions(state).count) { _, _ in
+            // The floating home grows with its session rows.
+            guard state.islandFloats, state.mode == .expanded, state.view == .overview else { return }
+            let (w, h) = islandSize(mode: .expanded, view: .overview, nw: state.notchWidth, nh: state.notchHeight)
+            withAnimation(openSpring) { islandWidth = w; islandHeight = h }
+        }
         .onChange(of: state.chatHistory.count) { _, _ in
             guard state.mode == .expanded, state.view == .prompt else { return }
             withAnimation(openSpring) { islandHeight = chatPromptHeight }
@@ -187,7 +202,7 @@ struct IslandContainer: View {
             islandWidth      = w
             islandHeight     = state.view == .prompt ? chatPromptHeight : h
             cornerRadius     = state.mode == .expanded ? IslandConst.expandedCorner : IslandConst.roundedCorner
-            islandTopRadius  = 0
+            islandTopRadius  = topRadius(for: state.mode)
         }
         .onReceive(NotificationCenter.default.publisher(for: .botGreet)) { _ in
             greetNotif.toggle()
@@ -199,7 +214,16 @@ struct IslandContainer: View {
                                     nw: state.notchWidth, nh: state.notchHeight)
             islandWidth  = w
             islandHeight = (state.mode == .expanded && state.view == .prompt) ? chatPromptHeight : h
+            islandTopRadius = topRadius(for: state.mode)
         }
+    }
+
+    /// A notch card hangs from the notch with square top corners. Without a notch, ink hangs
+    /// from the screen top with small concave ears (like a virtual notch); glass and hanji
+    /// float below the menu bar, rounded all round.
+    private func topRadius(for mode: IslandMode) -> CGFloat {
+        guard state.islandFloats, mode == .expanded else { return 0 }
+        return state.floatingTheme.hangsFromTop ? -IslandConst.floatingEarRadius : IslandConst.expandedCorner
     }
 
     private func modeOrder(_ m: IslandMode) -> Int {
@@ -295,14 +319,18 @@ struct BotPlacement: View {
     let islandH: CGFloat
 
     var body: some View {
-        let (cx, cy, diameter, opacity) = botPosition(mode: state.mode, view: state.view, islandW: islandW, islandH: islandH, uploadProgress: state.uploadProgress, hasNotch: state.hasNotch)
+        let (cx, cy, diameter, opacity) = botPosition(mode: state.mode, view: state.view, islandW: islandW, islandH: islandH, uploadProgress: state.uploadProgress, hasNotch: state.hasNotch,
+                                                   floatingEar: state.islandFloats ? state.floatingTheme.earRadius : nil)
         let canvasSize = diameter / 0.6
         let overhang: CGFloat = 40
         let isUploading = state.view == .uploading
 
         Group {
             // No glow in uploading mode — the tiny dot doesn't need it
-            if state.mode == .expanded && !isUploading {
+            // (none on a floating card: a halo reads as a smudge on the light looks and the
+            // header pet is too small for one)
+            if state.mode == .expanded && !isUploading
+                && !(state.islandFloats && (state.floatingSkin != .ink || FloatingLayout.isFloatingView(state.view))) {
                 Circle()
                     .fill(RadialGradient(
                         gradient: Gradient(stops: [
@@ -381,7 +409,11 @@ struct BotPlacement: View {
     }
 }
 
-func botPosition(mode: IslandMode, view: IslandView, islandW: CGFloat, islandH: CGFloat, uploadProgress: Double, hasNotch: Bool = true) -> (CGFloat, CGFloat, CGFloat, Double) {
+func botPosition(mode: IslandMode, view: IslandView, islandW: CGFloat, islandH: CGFloat, uploadProgress: Double, hasNotch: Bool = true, floatingEar: CGFloat? = nil) -> (CGFloat, CGFloat, CGFloat, Double) {
+    if let floatingEar, mode == .expanded, view == .overview || view == .approval {
+        let c = FloatingLayout.petCenter(ear: floatingEar)
+        return (c.x, c.y, FloatingLayout.petDiameter, 1)
+    }
     let resting = IslandRestingLayout(width: islandW, height: islandH)
     switch mode {
     case .hidden:
@@ -438,7 +470,7 @@ struct CountdownBar: View {
     var body: some View {
         GeometryReader { _ in
             Rectangle()
-                .fill(Color.white.opacity(0.35))
+                .fill(inkWhite(0.35))
                 .frame(width: barWidth, height: 2)
                 .cornerRadius(2)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -491,6 +523,8 @@ struct CountdownBar: View {
 
 struct IslandContentView: View {
     @ObservedObject var state: AppState
+    @Environment(\.floatingPalette) private var palette
+    private var hi: Color { state.islandFloats ? palette.text : Color(hex: "#F5F6F8") }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -506,6 +540,7 @@ struct IslandContentView: View {
                     // chat (prompt) is always flexible; mail is flexible only when active so
                     // it doesn't push the ZStack taller when inactive.
                     let isTall = v == .prompt || (v == .mail && active)
+                        || (state.islandFloats && v == .overview && active)
                     let anim: Animation = active
                         ? .spring(response: 0.4, dampingFraction: 0.8).delay(0.16)
                         : .easeIn(duration: 0.16)
@@ -514,7 +549,9 @@ struct IslandContentView: View {
                         // but stop their endless animations: nobody sees them.
                         .environment(\.islandViewActive, active)
                         .frame(maxWidth: .infinity)
-                        .frame(height: isTall ? nil : 98)
+                        // Floating cards are sized to their content: the hidden views behind
+                        // must not hold the stack at 98 pt (it pushed the header off the top).
+                        .frame(height: isTall ? nil : (state.islandFloats && !active ? 0 : 98))
                         .frame(minHeight: (isTall && !active) ? 0 : nil, maxHeight: isTall ? .infinity : nil)
                         .opacity(active ? 1 : 0)
                         .scaleEffect(active ? 1 : 0.97)
@@ -527,7 +564,7 @@ struct IslandContentView: View {
         }
         .padding(.top, 8)
         .padding(.bottom, 10)
-        .foregroundColor(Color(hex: "#F5F6F8"))
+        .foregroundColor(hi)
     }
 }
 
@@ -541,7 +578,17 @@ struct IslandHeader: View {
 
     /// Pending approval or mail draft: the island refuses to fold (fsm.isHeldOpen), so the
     /// close cross is not shown.
+    @Environment(\.floatingPalette) private var palette
+    // Header icons follow the floating card look; the notch card stays light on black.
+    private var hi: Color { state.islandFloats ? palette.text : Color(hex: "#F5F6F8") }
+    private var lo: Color { state.islandFloats ? palette.tertiary : Color(hex: "#8E939C") }
+
     private var heldOpen: Bool { state.pendingApproval != nil || state.voiceMailDraft != nil }
+
+    /// Floating home and permission cards keep the small pet at the left of the header.
+    private var headerLeading: CGFloat {
+        state.islandFloats && FloatingLayout.isFloatingView(state.view) ? 46 : 14
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -557,7 +604,7 @@ struct IslandHeader: View {
                 })
                 TabButton(icon: "plus", view: .upload, state: state)
             }
-            .padding(.leading, 14)
+            .padding(.leading, headerLeading)
 
             Spacer()
 
@@ -580,7 +627,7 @@ struct IslandHeader: View {
                     }) {
                         Image(systemName: state.view == .settings ? "gearshape.fill" : "gearshape")
                             .font(.system(size: 14))
-                            .foregroundColor(state.view == .settings || gearHovered ? Color(hex: "#F5F6F8") : Color(hex: "#8E939C"))
+                            .foregroundColor(state.view == .settings || gearHovered ? hi : lo)
                     }
                     .buttonStyle(.plain)
                     .onHover { gearHovered = $0 }
@@ -588,7 +635,7 @@ struct IslandHeader: View {
                     Button(action: { state.soundEnabled.toggle() }) {
                         Image(systemName: state.soundEnabled ? "speaker.wave.2" : "speaker.slash")
                             .font(.system(size: 14))
-                            .foregroundColor(soundHovered ? Color(hex: "#F5F6F8") : Color(hex: "#8E939C"))
+                            .foregroundColor(soundHovered ? hi : lo)
                     }
                     .buttonStyle(.plain)
                     .onHover { soundHovered = $0 }
@@ -600,7 +647,7 @@ struct IslandHeader: View {
                         }) {
                             Image(systemName: "xmark")
                                 .font(.system(size: 14))
-                                .foregroundColor(closeHovered ? Color(hex: "#F5F6F8") : Color(hex: "#8E939C"))
+                                .foregroundColor(closeHovered ? hi : lo)
                         }
                         .buttonStyle(.plain)
                         .help(String(localized: "Close"))
@@ -620,6 +667,11 @@ struct TabButton: View {
     @ObservedObject var state: AppState
     var preAction: (() -> Void)? = nil
     @State private var isHovered = false
+    @Environment(\.floatingPalette) private var palette
+    private var hi: Color { state.islandFloats ? palette.text : Color(hex: "#F5F6F8") }
+    private var lo: Color { state.islandFloats ? palette.tertiary : Color(hex: "#8E939C") }
+    private var onFill: Color { state.islandFloats ? palette.tabOnFill : Color(hex: "#1D1F23") }
+    private var hoverFill: Color { state.islandFloats ? palette.rowFill : Color.white.opacity(0.07) }
 
     private var isOn: Bool {
         if view == .overview { return state.view == .overview || state.view == .empty }
@@ -635,11 +687,11 @@ struct TabButton: View {
         }) {
             Image(systemName: icon)
                 .font(.system(size: 13))
-                .foregroundColor(isOn ? Color(hex: "#F5F6F8") : (isHovered ? Color(hex: "#B0B5BE") : Color(hex: "#8E939C")))
+                .foregroundColor(isOn ? hi : (isHovered ? lo.opacity(0.85) : lo))
                 .frame(width: 30, height: 22)
                 .background(
-                    isOn ? Color(hex: "#1D1F23") :
-                    isHovered ? Color.white.opacity(0.07) : Color.clear
+                    isOn ? onFill :
+                    isHovered ? hoverFill : Color.clear
                 )
                 .clipShape(Capsule())
         }

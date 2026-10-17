@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
@@ -6,6 +7,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
     private(set) var islandController: IslandWindowController?
     private var demoMenuItem: NSMenuItem?
+    private var statusMenu: NSMenu?
+    /// The pet drawn in the menu bar when the island floats (screens without a notch).
+    private var menuBarPet: NSView?
+    private var notchlessSubscription: AnyCancellable?
+    private static let menuBarPetSize = NSSize(width: 26, height: 22)
 
     func applicationWillTerminate(_ notification: Notification) {
         DemoEngine.shared.stop()
@@ -15,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Ignore SIGPIPE — prevents crash when tt-hook closes socket before we write response
         signal(SIGPIPE, SIG_IGN)
+        FloatingPreview.renderIfRequested()
         // Warm up Keychain cache on main thread BEFORE any poller or view touches it
         _ = KeychainStore.shared
         NSApp.setActivationPolicy(.accessory)
@@ -39,10 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupMenuBarItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         guard let button = statusItem?.button else { return }
-        button.image = NSImage(named: "MenuBarIcon") ?? NSImage(systemSymbolName: "circle.fill", accessibilityDescription: "뚝딱")
-        button.image?.size = NSSize(width: 24, height: 18)
-        button.image?.accessibilityDescription = "뚝딱"
-        button.image?.isTemplate = true
+        button.image = Self.menuBarIcon()
 
         let menu = NSMenu()
         menu.delegate = self
@@ -57,7 +61,66 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(withTitle: NSLocalizedString("Quit", comment: ""), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
+        statusMenu = menu
         statusItem?.menu = menu
+    }
+
+    private static func menuBarIcon() -> NSImage? {
+        let image = NSImage(named: "MenuBarIcon") ?? NSImage(systemSymbolName: "circle.fill", accessibilityDescription: "뚝딱")
+        image?.size = NSSize(width: 24, height: 18)
+        image?.accessibilityDescription = "뚝딱"
+        image?.isTemplate = true
+        return image
+    }
+
+    /// On a screen without a notch (menu-bar look) the pet itself lives in the menu bar:
+    /// a click opens the floating island, a right-click or ⌃-click shows the menu.
+    /// Elsewhere the item keeps its icon and opens the menu on any click.
+    private func refreshMenuBarItem() {
+        guard let item = statusItem, let button = item.button else { return }
+        if AppState.shared.islandFloats {
+            if menuBarPet == nil {
+                let pet = BotCanvasView(state: AppState.shared, playsCues: false,
+                                        animatesAtRest: true, fixedCell: 1)
+                    .frame(width: Self.menuBarPetSize.width, height: Self.menuBarPetSize.height)
+                let host = ClickThroughHostingView(rootView: pet)
+                host.frame = NSRect(origin: .zero, size: Self.menuBarPetSize)
+                host.autoresizingMask = [.minYMargin, .maxYMargin]
+                button.addSubview(host)
+                menuBarPet = host
+            }
+            item.length = Self.menuBarPetSize.width
+            if let host = menuBarPet {
+                host.setFrameOrigin(NSPoint(x: 0, y: (button.bounds.height - host.frame.height) / 2))
+            }
+            button.image = nil
+            button.setAccessibilityLabel("뚝딱")
+            item.menu = nil
+            button.target = self
+            button.action = #selector(menuBarClicked)
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        } else {
+            menuBarPet?.removeFromSuperview()
+            menuBarPet = nil
+            item.length = NSStatusItem.variableLength
+            button.image = Self.menuBarIcon()
+            button.action = nil
+            item.menu = statusMenu
+        }
+    }
+
+    @objc private func menuBarClicked() {
+        let event = NSApp.currentEvent
+        if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
+            statusItem?.menu = statusMenu
+            statusItem?.button?.performClick(nil)
+            statusItem?.menu = nil
+            return
+        }
+        // Every screen has its own menu bar: open under the one that was clicked.
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { $0.frame.contains(mouse) }
+        islandController?.toggleFromMenuBar(on: screen)
     }
 
     // MARK: - Actions
@@ -184,7 +247,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupIsland() {
         islandController = IslandWindowController()
         islandController?.showWindow(nil)
-        islandController?.fsm.launch()
+        refreshMenuBarItem()
+        if AppState.shared.islandFloats {
+            // No notch: no greeting card over the screen at launch; the menu-bar pet waves.
+            // Posted on the next turn, once the greetComplete observers below are in place.
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .botGreet, object: nil)
+                NotificationCenter.default.post(name: .greetComplete, object: nil)
+            }
+        } else {
+            islandController?.fsm.launch()
+        }
+        notchlessSubscription = AppState.shared.$notchlessStyle
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.refreshMenuBarItem() }
+        NotificationCenter.default.addObserver(forName: .islandScreenChanged, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshMenuBarItem() }
+        }
         HookServer.shared.start()
         #if !APPSTORE
         _ = VoiceEngine.shared  // registers system observers; starts mic only if the user enabled voice
@@ -229,4 +309,9 @@ extension AppDelegate: NSMenuDelegate {
             ? NSLocalizedString("demo.stop", comment: "")
             : NSLocalizedString("Demo mode", comment: "")
     }
+}
+
+/// Draws SwiftUI in the status item without taking its clicks: they reach the button.
+private final class ClickThroughHostingView<Content: View>: NSHostingView<Content> {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }

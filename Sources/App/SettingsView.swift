@@ -124,14 +124,6 @@ struct SettingsView: View {
     @State private var n8nWorkflows: [String] = []
     @State private var loadingN8n: Bool = false
 
-    // Bindings in minutes for the absence field
-    private var absenceMinutes: Binding<Double> {
-        Binding(
-            get: { state.absenceInterval / 60 },
-            set: { state.absenceInterval = max(1, $0) * 60 }
-        )
-    }
-
     // Connected screens for the Display picker, refreshed when screens change
     @State private var connectedScreens: [(uuid: String, name: String)] = []
 
@@ -334,13 +326,6 @@ struct SettingsView: View {
                         .frame(width: 64)
                     Text("s inactive")
                 }
-                HStack(spacing: 8) {
-                    Text("Hide after")
-                    TextField("3", value: absenceMinutes, format: .number)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 48)
-                    Text("min without movement")
-                }
             }
             .padding(6)
         }
@@ -361,10 +346,34 @@ struct SettingsView: View {
                     }
                 }
                 .frame(maxWidth: 360)
-                Text("On a screen without a notch, Mochi sits in a small bar at the top. Follow the mouse moves it to your cursor's screen while it is closed.")
-                    .font(.system(size: 11))
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                Picker(String(localized: "Without a notch"), selection: $state.notchlessStyle) {
+                    Text("Mochi in the menu bar").tag(NotchlessStyle.menuBarIcon)
+                    Text("Small bar at the top").tag(NotchlessStyle.bar)
+                }
+                .frame(maxWidth: 360)
+                if state.notchlessStyle == .menuBarIcon {
+                    Picker(String(localized: "Card look"), selection: $state.floatingTheme) {
+                        Text("Glass").tag(FloatingTheme.glass)
+                        Text("Hanji paper").tag(FloatingTheme.hanji)
+                        Text("Ink (black)").tag(FloatingTheme.ink)
+                    }
+                    .frame(maxWidth: 360)
+                    Text("On a screen without a notch, Mochi lives in the menu bar and the island opens as a card below it: click Mochi to open it, right-click for the menu. Follow the mouse moves it to your cursor's screen while it is closed.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("On a screen without a notch, Mochi sits in a small bar at the top. Follow the mouse moves it to your cursor's screen while it is closed.")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Toggle("Mochi on the desktop", isOn: Binding(
+                    get: { state.petOnDesktop },
+                    set: { on in
+                        if on != state.petOnDesktop { DesktopPetController.shared.flyOutOrHome() }
+                    }))
+                    .help("Mochi stands on the desktop instead of the island; ⌃⌥D does the same.")
             }
             .padding(6)
             .onAppear { refreshConnectedScreens() }

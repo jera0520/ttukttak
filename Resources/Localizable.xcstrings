@@ -1,6 +1,116 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Card look" : {},
+    "Glass" : {},
+    "Hanji paper" : {},
+    "Ink (black)" : {},
+    "island.allow-once" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow once"
+          }
+        }
+      }
+    },
+    "island.always-allow" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Always allow"
+          }
+        }
+      }
+    },
+    "island.tag.done" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Done"
+          }
+        }
+      }
+    },
+    "island.tag.error" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Error"
+          }
+        }
+      }
+    },
+    "island.tag.idle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Idle"
+          }
+        }
+      }
+    },
+    "island.tag.limit" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Limit reached"
+          }
+        }
+      }
+    },
+    "island.tag.needs-you" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Needs you"
+          }
+        }
+      }
+    },
+    "island.tag.searching" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Searching"
+          }
+        }
+      }
+    },
+    "island.tag.thinking" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thinking"
+          }
+        }
+      }
+    },
+    "island.tag.working" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Working"
+          }
+        }
+      }
+    },
+    "Mochi in the menu bar" : {},
+    "Mochi on the desktop" : {},
+    "Mochi stands on the desktop instead of the island; ⌃⌥D does the same." : {},
+    "On a screen without a notch, Mochi lives in the menu bar and the island opens as a card below it: click Mochi to open it, right-click for the menu. Follow the mouse moves it to your cursor's screen while it is closed." : {},
+    "Small bar at the top" : {},
+    "Without a notch" : {},
     "  %@" : {},
     " +%@" : {},
     " is ready." : {

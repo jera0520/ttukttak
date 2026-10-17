@@ -63,3 +63,24 @@ enum IslandDisplayResolver {
         }
     }
 }
+
+/// How the island lives on a screen without a notch (Mac mini, iMac, external monitors).
+/// Screens with a notch ignore it. Persisted in UserDefaults under `notchlessStyle`.
+enum NotchlessStyle: String, CaseIterable {
+    /// Default: the pet lives in the menu bar; the island only appears, as a card floating
+    /// below the menu bar, while it is open. Nothing is drawn over the menu bar.
+    case menuBarIcon
+    /// The original look: a small black bar at the top centre, standing in for a notch.
+    case bar
+}
+
+/// Look of the floating card (menu-bar look on a screen without a notch).
+/// Persisted in UserDefaults under `floatingTheme`.
+enum FloatingTheme: String, CaseIterable {
+    /// Black, hanging from the top of the screen like a notch.
+    case ink
+    /// macOS Liquid Glass, floating below the menu bar.
+    case glass
+    /// Warm hanji paper with the pet's orange, floating below the menu bar.
+    case hanji
+}

@@ -310,6 +310,25 @@ final class AppState: ObservableObject {
         didSet { UserDefaults.standard.set(islandDisplay.storageValue, forKey: "islandDisplay") }
     }
 
+    // Look on a screen without a notch — persisted
+    @Published var notchlessStyle: NotchlessStyle = .menuBarIcon {
+        didSet { UserDefaults.standard.set(notchlessStyle.rawValue, forKey: "notchlessStyle") }
+    }
+
+    // Look of the floating card — persisted
+    @Published var floatingTheme: FloatingTheme = .glass {
+        didSet { UserDefaults.standard.set(floatingTheme.rawValue, forKey: "floatingTheme") }
+    }
+
+    /// The island floats below the menu bar (open only) and the pet lives in the menu bar.
+    var islandFloats: Bool { !hasNotch && notchlessStyle == .menuBarIcon }
+
+    /// Colours of the floating card on screen: the chosen look, except on the views still drawn
+    /// for black only (upload, mail, recap, voice, greeting canvases), which keep ink.
+    var floatingSkin: FloatingTheme {
+        mode == .expanded && FloatingLayout.inkOnlyViews.contains(view) ? .ink : floatingTheme
+    }
+
     // Vercel project filter — empty = watch all projects
     @Published var vercelProjectFilter: Set<String> = [] {
         didSet {
@@ -522,6 +541,8 @@ final class AppState: ObservableObject {
         if let v = ud.object(forKey: "hotkeyFlags")   as? Int   { hotkeyFlags = UInt(v) }
         if let v = ud.object(forKey: "hotkeyCode")    as? Int   { hotkeyCode = UInt16(v) }
         if let v = ud.string(forKey: "islandDisplay") { islandDisplay = IslandDisplayChoice(storageValue: v) }
+        if let v = ud.string(forKey: "notchlessStyle"), let s = NotchlessStyle(rawValue: v) { notchlessStyle = s }
+        if let v = ud.string(forKey: "floatingTheme"), let t = FloatingTheme(rawValue: v) { floatingTheme = t }
         if let d = ud.data(forKey: "vercelProjectFilter"),
            let a = try? JSONDecoder().decode([String].self, from: d) { vercelProjectFilter = Set(a) }
         if let d = ud.data(forKey: "n8nWorkflowFilter"),

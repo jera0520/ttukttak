@@ -18,6 +18,7 @@ final class IslandWindowController: NSWindowController {
     private var displaySubscription: AnyCancellable?
     private var autoCloseSubscription: AnyCancellable?
     private var openOnHoverSubscription: AnyCancellable?
+    private var notchlessSubscription: AnyCancellable?
 
     // Confused recovery timer (set by handleDizzy)
     private var confusedRecoveryTimer: DispatchWorkItem?
@@ -77,7 +78,7 @@ final class IslandWindowController: NSWindowController {
         let panelH: CGFloat = 560
         let sf = screen.frame
         let panel = IslandPanel(
-            contentRect: NSRect(x: sf.midX - panelW/2, y: sf.maxY - panelH,
+            contentRect: NSRect(x: sf.midX - panelW/2, y: sf.maxY - panelH - Self.panelTopGap(for: screen, hasNotch: geometry.hasNotch),
                                 width: panelW, height: panelH),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered, defer: false
@@ -206,6 +207,14 @@ final class IslandWindowController: NSWindowController {
                 self?.moveToTargetScreen(choice: choice)
             }
 
+        // Notchless look changed in Settings: redraw the island for the new look.
+        notchlessSubscription = state.$notchlessStyle.dropFirst().map { _ in () }
+            .merge(with: state.$floatingTheme.dropFirst().map { _ in () })
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.relocate(to: Self.islandScreen())
+            }
+
         // Screen plugged/unplugged, lid closed, arrangement or resolution changed.
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
@@ -215,6 +224,20 @@ final class IslandWindowController: NSWindowController {
     }
 
     // MARK: - Screen choice
+
+    /// Click on the menu-bar pet: open the floating island under the menu bar that was
+    /// clicked (each screen has its own), or fold it if it is already open.
+    func toggleFromMenuBar(on screen: NSScreen?) {
+        if state.mode == .expanded {
+            collapse()
+            return
+        }
+        if let screen, screen != Self.currentScreen, !inAttachDrag, attachDragStart == nil {
+            relocate(to: screen)
+        }
+        fsm.openedExternally()
+        expand(to: .overview)
+    }
 
     private func moveToTargetScreen(choice: IslandDisplayChoice) {
         guard !inAttachDrag, attachDragStart == nil else { return }
@@ -238,7 +261,7 @@ final class IslandWindowController: NSWindowController {
 
         let sf = screen.frame
         let size = panel.frame.size
-        panel.setFrame(NSRect(x: sf.midX - size.width/2, y: sf.maxY - size.height,
+        panel.setFrame(NSRect(x: sf.midX - size.width/2, y: sf.maxY - size.height - Self.panelTopGap(for: screen, hasNotch: hasNotch),
                               width: size.width, height: size.height), display: true)
         // notchWidth/hasNotch are not @Published: tell the views to resize the island.
         NotificationCenter.default.post(name: .islandScreenChanged, object: nil)
@@ -278,7 +301,8 @@ final class IslandWindowController: NSWindowController {
                     // Fire interrupt first so canvas collapse starts before mode change
                     NotificationCenter.default.post(name: .greetingInterrupt, object: nil)
                 } else if from == .hidden {
-                    if self.silentNextReveal {
+                    if self.silentNextReveal || self.state.islandFloats {
+                        // A floating island stays invisible when compact: no peek sound either.
                         self.silentNextReveal = false
                     } else {
                         SoundEngine.shared.play("peek")
@@ -444,7 +468,9 @@ final class IslandWindowController: NSWindowController {
         // in the app window immediately below the menu bar.
         let hoverRect = !hasNotch && state.mode != .expanded
             ? islandRect : islandRect.insetBy(dx: -6, dy: -6)
-        let inIsland = hoverRect.contains(local)
+        // A floating island is invisible until it opens: nothing to hover or click at rest.
+        let floatingAtRest = state.islandFloats && state.mode != .expanded
+        let inIsland = !floatingAtRest && hoverRect.contains(local)
 
         // Toggle click-through
         let shouldAcceptMouse = inIsland || inAttachDrag || attachDragStart != nil
@@ -1286,7 +1312,8 @@ final class IslandWindowController: NSWindowController {
         let islandMinX = (panelW - islandW) / 2
         let (cx, cy, diameter, _) = botPosition(mode: s.mode, view: s.view,
                                                   islandW: islandW, islandH: islandH,
-                                                  uploadProgress: s.uploadProgress, hasNotch: s.hasNotch)
+                                                  uploadProgress: s.uploadProgress, hasNotch: s.hasNotch,
+                                                  floatingEar: s.islandFloats ? s.floatingTheme.earRadius : nil)
         let radius = (diameter / 0.6) / 2
         // botPosition cy is from island TOP; panel AppKit coords have y=0 at bottom
         // island top in AppKit coords = panelH (island glued to top of panel/screen)
@@ -1320,7 +1347,7 @@ final class IslandWindowController: NSWindowController {
 
     static func islandScreen() -> NSScreen {
         if let s = currentScreen, NSScreen.screens.contains(s) { return s }
-        return notchScreen() ?? NSScreen.main!
+        return notchScreen() ?? NSScreen.screens.first ?? NSScreen.main!
     }
 
     /// Screen matching the user's choice; falls back to the notch screen, then the main one.
@@ -1332,7 +1359,8 @@ final class IslandWindowController: NSWindowController {
                                    containsMouse: $0.frame.contains(mouse))
         }
         if let i = IslandDisplayResolver.index(for: choice, in: candidates) { return screens[i] }
-        return notchScreen() ?? NSScreen.main ?? screens[0]
+        // No notch: the menu-bar screen, which does not change with the focused window.
+        return notchScreen() ?? screens.first ?? NSScreen.main!
     }
 
     /// Stable display UUID (the NSScreenNumber can change after a reboot or a replug).
@@ -1342,6 +1370,16 @@ final class IslandWindowController: NSWindowController {
               let uuid = CGDisplayCreateUUIDFromDisplayID(number.uint32Value)?.takeRetainedValue()
         else { return nil }
         return CFUUIDCreateString(nil, uuid) as String
+    }
+
+    /// How far below the screen top the panel hangs: under the menu bar for the light
+    /// floating looks (glass, hanji), 0 for a notch or a card hanging from the top.
+    static func panelTopGap(for screen: NSScreen, hasNotch: Bool) -> CGFloat {
+        let state = AppState.shared
+        guard !hasNotch, state.notchlessStyle == .menuBarIcon, !state.floatingTheme.hangsFromTop else { return 0 }
+        let visibleMenuBarHeight = screen.frame.maxY - screen.visibleFrame.maxY
+        let menuBarHeight = visibleMenuBarHeight > 0 ? visibleMenuBarHeight : NSStatusBar.system.thickness
+        return menuBarHeight + FloatingLayout.menuBarGap
     }
 
     static func screenGeometry(for screen: NSScreen) -> IslandScreenGeometry {
@@ -1981,6 +2019,7 @@ extension Notification.Name {
 
 // MARK: - islandSize (takes real notch dimensions)
 
+@MainActor
 func islandSize(mode: IslandMode, view: IslandView,
                 progress: Double = 0,
                 nw: CGFloat = IslandConst.notchWidth,
@@ -1989,6 +2028,10 @@ func islandSize(mode: IslandMode, view: IslandView,
     case .hidden:   return (nw, nh)
     case .compact:  return (nw + 160, nh)
     case .expanded:
+        if AppState.shared.islandFloats {
+            if view == .overview { return (FloatingLayout.width, FloatingLayout.overviewHeight(AppState.shared)) }
+            if view == .approval { return (FloatingLayout.width, FloatingLayout.approvalHeight) }
+        }
         let layout = IslandConst.viewLayouts[view]!
         if view == .question, let h = QuestionLayout.height {
             return (IslandConst.expandedWidth, h)

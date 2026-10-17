@@ -768,6 +768,10 @@ final class HookServer: @unchecked Sendable {
             } else if isAlert && state.pendingApproval == nil {
                 state.view = view
             }
+        } else if isAlert && state.islandFloats && view != .approval && view != .question {
+            // Floating (no notch): only what needs an answer opens a card. Finished and
+            // errors show on the menu-bar pet, like a menu-bar app; a click opens the card.
+            if state.mode == .hidden { NotificationCenter.default.post(name: .hookReveal, object: nil) }
         } else if isAlert {
             // Alerts always force-expand
             NotificationCenter.default.post(name: .hookExpand, object: view)

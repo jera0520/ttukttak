@@ -28,7 +28,7 @@
 
 ## 설치
 
-필요한 것: Apple Silicon 맥(M1 이상), macOS 15 이상. 노치가 없는 화면에서는 화면 위쪽 작은 막대에 나옵니다.
+필요한 것: Apple Silicon 맥(M1 이상), macOS 15 이상. 노치가 없는 화면(맥미니·외장 모니터)에서는 복슬깨비가 메뉴 막대에 살고, 누르거나 답이 필요할 때 메뉴 막대 아래에 카드가 뜹니다(카드 디자인: 유리·한지·먹). 설정에서 예전 작은 막대로 바꿀 수 있습니다.
 
 1. [Releases](https://github.com/jera0520/ttukttak/releases)에서 `Ttukttak-버전-macOS-arm64.zip`을 내려받아 압축을 풀고, `뚝딱.app`을 `응용 프로그램` 폴더로 옮깁니다.
 2. 처음 열면 "Apple이 확인할 수 없다"며 막힙니다. 개발자 인증서로 서명·공증하지 않은 앱이라서 그렇습니다.
@@ -112,7 +112,8 @@ petted, waiting long.
 
 ### Install
 
-Requires an Apple Silicon Mac (M1 or later) and macOS 15 or later. On a screen without a notch it sits in a small bar
+Requires an Apple Silicon Mac (M1 or later) and macOS 15 or later. On a screen without a notch (Mac mini, external displays) the pet lives in the menu bar and the island opens as a card
+below it, in glass, hanji paper or ink (Settings › Display; the old small bar is still there). Before 0.2.0 it sat in a small bar
 at the top.
 
 1. Download `Ttukttak-<version>-macOS-arm64.zip` from [Releases](https://github.com/jera0520/ttukttak/releases),

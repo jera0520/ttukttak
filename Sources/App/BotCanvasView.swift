@@ -8,6 +8,12 @@ struct BotCanvasView: View {
     var particleOverhang: CGFloat = 0
     /// Not drawn while true (e.g. the notch copy while the pet is on the desktop).
     var paused: Bool = false
+    /// False for a second copy of the pet (the menu bar one): sounds play once, from the island.
+    var playsCues: Bool = true
+    /// The island pauses its pet while hidden; the menu bar pet keeps moving.
+    var animatesAtRest: Bool = false
+    /// Fixed cell size in points (the menu bar pet), instead of fitting the canvas.
+    var fixedCell: CGFloat? = nil
 
     @StateObject private var cues = PetCues()
     @StateObject private var pet = PetPlayer()
@@ -15,42 +21,42 @@ struct BotCanvasView: View {
 
     var body: some View {
         // The pixel pet changes picture a few times a second: 30 fps is plenty.
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: state.mode == .hidden || paused)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: (state.mode == .hidden && !animatesAtRest) || paused)) { timeline in
             // The Canvas must capture the frame's date, or it is not redrawn.
             let frame = timeline.date
             Canvas { context, size in
                 _ = frame
                 // Same footprint as the old body: its diameter was 0.6 of the canvas width.
-                let cell = PetSprite.cell(fitting: size.width * 0.6, scale: displayScale)
+                let cell = fixedCell ?? PetSprite.cell(fitting: size.width * 0.6, scale: displayScale)
                 let center = CGPoint(x: size.width / 2, y: size.height / 2 + particleOverhang / 2)
                 PetSprite.draw(pet.frame(), in: context, center: center, cell: cell)
             }
         }
         .onChange(of: state.effectiveState) { _, newState in
-            cues.setState(newState)
+            if playsCues { cues.setState(newState) }
             pet.show(PetClip(newState))
         }
         #if !APPSTORE
         .onChange(of: state.view) { _, newView in
             // The listening view plays the attentive sound and shows the question face.
             if newView == .listening {
-                cues.listen()
+                if playsCues { cues.listen() }
                 pet.react(.question, for: 1.6)
             }
         }
         #endif
         .onReceive(NotificationCenter.default.publisher(for: .triggerEmote)) { notif in
             if let emote = notif.object as? BotEmote {
-                cues.emote(emote)
+                if playsCues { cues.emote(emote) }
                 pet.react(PetClip(reaction: emote), for: 1.6)
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .triggerSlap)) { _ in
-            cues.slap()
+            if playsCues { cues.slap() }
             pet.react(.error, for: 0.6)
         }
         .onReceive(NotificationCenter.default.publisher(for: .botGreet)) { _ in
-            cues.greet()
+            if playsCues { cues.greet() }
             pet.react(.petted, for: 1.4)
         }
         .onReceive(NotificationCenter.default.publisher(for: .botGulp)) { _ in
@@ -58,7 +64,7 @@ struct BotCanvasView: View {
             pet.react(.finished, for: 1.2)
         }
         .onAppear {
-            cues.setState(state.effectiveState)
+            if playsCues { cues.setState(state.effectiveState) }
             // Naps after 90 s of idle; "petNapSeconds" in the app's defaults changes it (the demo uses a few seconds).
             pet.napAfter = UserDefaults.standard.object(forKey: "petNapSeconds") as? Double ?? 90
             pet.show(PetClip(state.effectiveState), restart: true)
