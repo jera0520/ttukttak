@@ -87,6 +87,21 @@ enum FloatingPreview {
                 try? rep.representation(using: .png, properties: [:])?.write(to: url)
             }
         }
+        // The chat's model picker is a popover (its own window): draw it on the system
+        // window colour, the way the popover shows it.
+        s.fetchedProviderModels[s.chatProvider] = [(id: s.activeChatModel, label: s.activeChatModel),
+                                                   (id: "preview-other", label: "다른 모델")]
+        let picker = ModelPickerView(state: s, isPresented: .constant(true))
+            .frame(width: 300)
+            .environment(\.floatingPalette, FloatingPalette.of(s.floatingSkin))
+            .background(Color(nsColor: .windowBackgroundColor))
+            .environment(\.locale, Locale(identifier: "ko"))
+        let renderer = ImageRenderer(content: picker)
+        renderer.scale = 2
+        if let cg = renderer.cgImage {
+            let url = URL(fileURLWithPath: dir).appendingPathComponent("floating-\(theme.rawValue)-modelpicker.png")
+            try? NSBitmapImageRep(cgImage: cg).representation(using: .png, properties: [:])?.write(to: url)
+        }
         }
         s.floatingTheme = savedTheme
         exit(0)
