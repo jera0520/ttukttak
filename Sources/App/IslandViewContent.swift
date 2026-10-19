@@ -1588,6 +1588,7 @@ struct ModelPickerView: View {
                             Text(provider.displayName)
                                 .font(.system(size: 12, weight: state.chatProvider == provider ? .semibold : .regular))
                         }
+                        .foregroundColor(ink("#F1F2F4"))
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(state.chatProvider == provider

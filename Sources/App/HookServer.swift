@@ -607,10 +607,12 @@ final class HookServer: @unchecked Sendable {
             // The step log is shared, so the conclusion is worth showing either way.
             if !finalText.isEmpty { appendStep(id: agentId, step: finalText) }
             RecapStore.shared.stop(sessionId: recapSessionId)
-            // Another session is still mid-turn behind this pill: the finished state, the
-            // sound and the idle reset below would land on its work. Its own Stop comes later.
+            // Another session is still mid-turn behind this pill: the finished state and the
+            // idle reset below would land on its work. Its own Stop comes later. The sound still
+            // plays, so every finished turn is heard (same rule as StopFailure).
             guard scope == .pill else {
                 ttLog("Stop \(sessionId.prefix(8)) — \(sessions.workingCount(pill: agentId)) session(s) still working on \(agentId)")
+                SoundEngine.shared.play("finish")
                 break
             }
             state.updateTask(id: agentId, state: .finished)
@@ -768,10 +770,6 @@ final class HookServer: @unchecked Sendable {
             } else if isAlert && state.pendingApproval == nil {
                 state.view = view
             }
-        } else if isAlert && state.islandFloats && view != .approval && view != .question {
-            // Floating (no notch): only what needs an answer opens a card. Finished and
-            // errors show on the menu-bar pet, like a menu-bar app; a click opens the card.
-            if state.mode == .hidden { NotificationCenter.default.post(name: .hookReveal, object: nil) }
         } else if isAlert {
             // Alerts always force-expand
             NotificationCenter.default.post(name: .hookExpand, object: view)

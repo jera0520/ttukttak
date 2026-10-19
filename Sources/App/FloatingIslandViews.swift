@@ -396,10 +396,16 @@ func ink(_ hex: String) -> Color {
     switch hex.uppercased() {
     case "#F5F6F8", "#F1F2F4", "#F2F3F5", "#FFFFFF": return p.text
     case "#E8E9EC":                                   return p.codeText
-    case "#C5C8CD", "#A9ADB5":                        return p.text.opacity(0.78)
-    case "#9398A1", "#8E939C", "#8A8F98", "#7C818A": return p.secondary
-    case "#6B7079", "#5F646D", "#4B5563", "#454850": return p.tertiary
-    case "#141518", "#0E0F11", "#1D1F23":             return p.rowFill
+    case "#C5C8CD", "#A9ADB5", "#C8CDD4", "#C9CDD4",
+         "#D5D7DB", "#B9BDC4", "#B0B5BE", "#E8E8E8": return p.text.opacity(0.78)
+    case "#9398A1", "#8E939C", "#8A8F98", "#7C818A",
+         "#9AA0A8", "#80858E", "#7B8089":             return p.secondary
+    case "#6B7079", "#5F646D", "#4B5563", "#454850",
+         "#6E737C", "#5C6370", "#4D5159":             return p.tertiary
+    case "#141518", "#0E0F11", "#1D1F23", "#252830": return p.rowFill
+    // The model picker popover is its own window, not glass: let the system popover show
+    // on glass, paper on hanji.
+    case "#16171B":                                   return s.floatingSkin == .hanji ? Color(hex: "#FBF7F0") : .clear
     case "#0B0C0E":                                   return Color.white   // text on a primary button
     case "#F4505E", "#FF8D97", "#FA2D48", "#FCA5A5": return Color(hex: "#C93C3C")
     case "#22C55E", "#34D399":                        return Color(hex: "#17895C")
