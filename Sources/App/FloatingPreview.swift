@@ -12,10 +12,10 @@ enum FloatingPreview {
         let s = AppState.shared
         s.hasNotch = false
         s.tasks = [
-            AgentTask(id: "integration_claude", name: "munlink-work", color: "#E879F9", state: .working,
-                      stepIndex: 0, steps: ["Edit · tools/delivery_check.py"], source: .claudeCode,
+            AgentTask(id: "integration_claude", name: "my-blog", color: "#E879F9", state: .working,
+                      stepIndex: 0, steps: ["Edit · scripts/check.py"], source: .claudeCode,
                       isIntegration: true, hostApp: "com.apple.Terminal"),
-            AgentTask(id: "agent_codex", name: "hongbo-chukchuk", color: "#60A5FA", state: .approval,
+            AgentTask(id: "agent_codex", name: "shop-page", color: "#60A5FA", state: .approval,
                       steps: ["Bash · npm run build"], source: .agent, isIntegration: true),
             AgentTask(id: "agent_cursor", name: "portfolio", color: "#22C55E", state: .finished,
                       steps: [], source: .agent, isIntegration: true,
@@ -31,7 +31,7 @@ enum FloatingPreview {
         s.pendingApproval = ApprovalInfo(sessionId: "preview", tool: "Bash",
                                          command: "npm run build && npx wrangler deploy",
                                          inputKey: "", pillId: "integration_claude",
-                                         queueCount: 2, projectName: "hongbo-chukchuk")
+                                         queueCount: 2, projectName: "shop-page")
         s.mode = .expanded
         // The theme is persisted on every change: put the user's back before quitting.
         let savedTheme = s.floatingTheme
