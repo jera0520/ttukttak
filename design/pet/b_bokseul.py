@@ -1,4 +1,4 @@
-"""복슬깨비: 털뭉치 도깨비. 외뿔·덧니·호랑이 가죽, 방망이로 뚝딱.
+"""복슬깨비: 털뭉치 도깨비. 외뿔·덧니·낡은 호랑이 가죽, 방망이로 뚝딱.
 
 그림은 MIT가 아니다: LICENSE-ASSETS. The character art here is not MIT-licensed: see LICENSE-ASSETS.
 """
@@ -10,7 +10,7 @@ from _fluff import (MOUTH, PAL, STATES, WHITE, blush, build, confetti, dot, eyes
                     hshift, mouth, put, question, shift, spark, star, sweat, wait_dots, yeopjeon, zzz)
 
 NAME = "복슬깨비"
-CONCEPT = "털뭉치 도깨비 — 외뿔·덧니·호랑이 가죽, 일할 땐 방망이로 뚝딱, 끝나면 금 나와라 뚝딱"
+CONCEPT = "털뭉치 도깨비 — 외뿔·덧니·휘날리는 낡은 호랑이 가죽, 일할 땐 방망이로 뚝딱, 끝나면 금 나와라 뚝딱"
 
 BODY = grid([
     ".......c............",
@@ -25,10 +25,21 @@ BODY = grid([
     "...khhhhhhhhhhhhk...",
     "..hhhhhhhhhhhhhhhh..",
     "...hhhhhhhhhhhhhh...",
-    "...yKyyyKyyKyyyKy...",   # 호랑이 가죽 치마
+    "...yKyyyKyyKyyyKy...",   # 12~14줄은 SKIN으로 바꿔 끼운다
     "...yyKyyKyyKyyKyy...",
     "....hh........hh....",
 ])
+# 낡은 호랑이 가죽(타잔처럼): 오른쪽으로 찢어진 자락이 날리고, 구멍(h, 털이 보임)·닳은 곳(t).
+# 두 장을 번갈아 써서 자락이 펄럭인다. 14줄은 발(hh) 사이·옆으로 늘어진 자락.
+SKIN = [
+    ["...tKyhtyKyyhKyyK...",
+     "....yKy.ytKy.yKhyy..",
+     "....hh.y..K...hhyK.."],
+    ["...tKyhtyKyyhKyyK...",
+     "....yKy.ytKy.yKhy.y.",
+     "....hh..y.K...hh.yK."],
+]
+assert all(len(r) == 20 for f in SKIN for r in f)
 LIGHT = [(6, 4), (7, 4), (5, 5)]
 # 방망이: (x, y, 글자). 나무 W·밝은 곳 V·금 징 g
 CLUB = {
@@ -49,8 +60,8 @@ PUFF = [(4, 2), (14, 2), (11, 2), (1, 7), (18, 8), (1, 10), (18, 10)]
 FRAZZLE = [(4, 2), (10, 1), (14, 2), (1, 6), (18, 7), (1, 10), (18, 11)]
 
 
-def base(eye="open", mo="fang", club="rest", dy=0, dx=0, fur="", cheek=True):
-    rows = put(BODY, LIGHT, "H")
+def base(eye="open", mo="fang", club="rest", dy=0, dx=0, fur="", cheek=True, flap=0):
+    rows = put(BODY[:12] + SKIN[flap] + BODY[15:], LIGHT, "H")
     for x, y, ch in CLUB[club]:
         rows = put(rows, [(x, y)], ch)
     rows = put(rows, ARM[club], "h")
@@ -84,7 +95,7 @@ def base(eye="open", mo="fang", club="rest", dy=0, dx=0, fur="", cheek=True):
 
 def frames(state):
     if state == "idle":
-        return [(base(), 720), (base(dy=1), 600), (base(), 600), (base(eye="blink"), 120), (base(), 360)]
+        return [(base(), 720), (base(dy=1, flap=1), 600), (base(), 600), (base(eye="blink", flap=1), 120), (base(flap=1), 360)]
     if state == "thinking":
         out = []
         for i in range(3):
@@ -94,29 +105,29 @@ def frames(state):
         return out
     if state == "working":
         a = base(eye="open", mo="fang", club="up")
-        b = base(eye="happy", mo="fang", club="down", dy=1)
+        b = base(eye="happy", mo="fang", club="down", dy=1, flap=1)
         dot(b, [(15, 15), (19, 15), (16, 11)], "#FFE2A8")   # 뚝! 하고 튀는 먼지
         return [(a, 240), (b, 240)]
     if state == "approval":
         a = base(eye="sparkle", mo="fang_laugh", club="up", dy=-1, fur="puff")
         exclaim(a, 2, 0)
-        b = base(eye="sparkle", mo="fang_laugh", club="rest")
+        b = base(eye="sparkle", mo="fang_laugh", club="rest", flap=1)
         exclaim(b, 2, 0)
         return [(a, 240), (b, 240)]
     if state == "question":
         a = base(eye="side", mo="small")
         question(a, 1, 0)
-        b = base(eye="side", mo="small", dx=-1)
+        b = base(eye="side", mo="small", dx=-1, flap=1)
         question(b, 0, 0)
         return [(a, 600), (b, 600)]
     if state == "finished":
         a = base(eye="happy", mo="fang_laugh", club="up")
-        b = base(eye="happy", mo="fang_laugh", club="down", dy=1)
+        b = base(eye="happy", mo="fang_laugh", club="down", dy=1, flap=1)
         yeopjeon(b, 13, 9)
         c = base(eye="happy", mo="fang_laugh", club="down", dy=1)
         yeopjeon(c, 14, 4)
         yeopjeon(c, 1, 8)
-        d = base(eye="happy", mo="fang_laugh", club="down")
+        d = base(eye="happy", mo="fang_laugh", club="down", flap=1)
         yeopjeon(d, 15, 0)
         yeopjeon(d, 0, 3)
         spark(d, 10, 0)
@@ -140,13 +151,13 @@ def frames(state):
     if state == "petted":
         a = base(eye="happy", mo="fang", dy=1)
         heart(a, 13, 0)
-        b = base(eye="happy", mo="fang")
+        b = base(eye="happy", mo="fang", flap=1)
         heart(b, 14, 0)
         return [(a, 300), (b, 300)]
     if state == "waiting_long":
         out = []
         for n in range(4):
-            s = base(eye="down", mo="flat")
+            s = base(eye="down", mo="flat", flap=n % 2)
             wait_dots(s, 1, 1, n)
             out.append((s, 300))
         return out
