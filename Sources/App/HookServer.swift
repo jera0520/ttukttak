@@ -608,11 +608,15 @@ final class HookServer: @unchecked Sendable {
             if !finalText.isEmpty { appendStep(id: agentId, step: finalText) }
             RecapStore.shared.stop(sessionId: recapSessionId)
             // Another session is still mid-turn behind this pill: the finished state and the
-            // idle reset below would land on its work. Its own Stop comes later. The sound still
-            // plays, so every finished turn is heard (same rule as StopFailure).
+            // idle reset below would land on its work. Its own Stop comes later. The finished
+            // card (it only reads finalLine) and the sound still come, so every turn is noticed.
             guard scope == .pill else {
                 ttLog("Stop \(sessionId.prefix(8)) — \(sessions.workingCount(pill: agentId)) session(s) still working on \(agentId)")
+                if !finalText.isEmpty, let idx = state.tasks.firstIndex(where: { $0.id == agentId }) {
+                    state.tasks[idx].finalLine = finalText
+                }
                 SoundEngine.shared.play("finish")
+                if focused { expandIfNeeded(to: .finished) }
                 break
             }
             state.updateTask(id: agentId, state: .finished)
