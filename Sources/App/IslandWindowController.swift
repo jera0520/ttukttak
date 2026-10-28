@@ -833,12 +833,13 @@ final class IslandWindowController: NSWindowController {
             NotificationCenter.default.post(name: .triggerEmote, object: BotEmote.annoyed)
             return
         }
-        if TmuxJump.jump(pane: state.focusTask?.tmuxPane) {
-            // The session's own tmux window is coming forward
-        } else if !TerminalTarget.activate(sessionBundleId: state.focusTask?.sessionBundleId) {
-            NSWorkspace.shared.open(
-                URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"))
-        }
+        let task = state.focusTask
+        TmuxJump.open(pane: task?.cardTmuxPane, bundleId: task?.sessionBundleId, fallback: {
+            if !TerminalTarget.activate(sessionBundleId: task?.sessionBundleId) {
+                NSWorkspace.shared.open(
+                    URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"))
+            }
+        })
         collapse(allowPendingApproval: true)
     }
 

@@ -44,8 +44,6 @@ struct PillSessionRegistry {
         var hostApp: String? = nil
         /// Bundle id of the client (VS Code, Cursor…) that sent the event.
         var bundleId: String = ""
-        /// tmux pane (TMUX_PANE) the session runs in, for "Open terminal".
-        var tmuxPane: String = ""
     }
 
     private struct Session {
@@ -53,7 +51,6 @@ struct PillSessionRegistry {
         var cwd: String
         var hostApp: String?
         var bundleId: String
-        var tmuxPane: String
         var isWorking: Bool
         var lastSeen: Date
     }
@@ -80,12 +77,11 @@ struct PillSessionRegistry {
         var session = p.sessions[display.session]
             ?? Session(projectName: display.projectName, cwd: display.cwd,
                        hostApp: display.hostApp, bundleId: display.bundleId,
-                       tmuxPane: display.tmuxPane, isWorking: false, lastSeen: now)
+                       isWorking: false, lastSeen: now)
         session.projectName = display.projectName
         if !display.cwd.isEmpty { session.cwd = display.cwd }
         if display.hostApp != nil { session.hostApp = display.hostApp }
         if !display.bundleId.isEmpty { session.bundleId = display.bundleId }
-        if !display.tmuxPane.isEmpty { session.tmuxPane = display.tmuxPane }
         if working { session.isWorking = true }
         session.lastSeen = now
         p.sessions[display.session] = session
@@ -132,8 +128,7 @@ struct PillSessionRegistry {
         guard let p = pills[pill], let id = p.order.first,
               let session = p.sessions[id] else { return nil }
         return Display(session: id, projectName: session.projectName, cwd: session.cwd,
-                       hostApp: session.hostApp, bundleId: session.bundleId,
-                       tmuxPane: session.tmuxPane)
+                       hostApp: session.hostApp, bundleId: session.bundleId)
     }
 
     /// Whether this session may write the pill's name and cwd. True when the

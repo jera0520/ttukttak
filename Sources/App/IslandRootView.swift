@@ -330,7 +330,7 @@ struct BotPlacement: View {
             // (none on a floating card: a halo reads as a smudge on the light looks and the
             // header pet is too small for one)
             if state.mode == .expanded && !isUploading
-                && !(state.islandFloats && (state.floatingSkin != .ink || FloatingLayout.isFloatingView(state.view))) {
+                && !((state.islandFloats && FloatingLayout.isFloatingView(state.view)) || state.skinIsLight) {
                 Circle()
                     .fill(RadialGradient(
                         gradient: Gradient(stops: [

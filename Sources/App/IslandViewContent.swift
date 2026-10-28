@@ -219,16 +219,21 @@ struct OverviewView: View {
         guard let task else { return }
         switch task.id {
         case "integration_claude":
-            #if !APPSTORE
-            if TmuxJump.jump(pane: task.tmuxPane) { return }
-            #endif
-            if ClaudeHost.activate(task.hostApp) { return }
-            let vscodeBundleId = "com.microsoft.VSCode"
-            if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == vscodeBundleId }) {
-                app.activate(options: .activateIgnoringOtherApps)
-            } else {
-                NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/Visual Studio Code.app"))
+            let plain = {
+                if ClaudeHost.activate(task.hostApp) { return }
+                let vscodeBundleId = "com.microsoft.VSCode"
+                if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == vscodeBundleId }) {
+                    app.activate(options: .activateIgnoringOtherApps)
+                } else {
+                    NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications/Visual Studio Code.app"))
+                }
             }
+            #if !APPSTORE
+            // The tmux window of the session that raised the card, else the plain activation.
+            TmuxJump.open(pane: task.cardTmuxPane, bundleId: task.sessionBundleId, fallback: plain)
+            #else
+            plain()
+            #endif
         case "integration_resend":
             NSWorkspace.shared.open(URL(string: "https://resend.com/emails")!)
         case "integration_mail":
@@ -713,11 +718,12 @@ private struct OpenSessionButton: View {
             PrimaryButton("Open terminal") {
                 // A tmux session: its own Terminal window. Else the app the session runs in
                 // (its terminal, or VS Code), then any known terminal
-                if TmuxJump.jump(pane: task?.tmuxPane) {
-                } else if !(task?.id == "integration_claude" && ClaudeHost.activate(task?.hostApp)),
-                   !TerminalTarget.activate(sessionBundleId: task?.sessionBundleId) {
-                    NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"))
-                }
+                TmuxJump.open(pane: task?.cardTmuxPane, bundleId: task?.sessionBundleId, fallback: {
+                    if !(task?.id == "integration_claude" && ClaudeHost.activate(task?.hostApp)),
+                       !TerminalTarget.activate(sessionBundleId: task?.sessionBundleId) {
+                        NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"))
+                    }
+                })
                 NotificationCenter.default.post(name: .islandCollapse, object: nil)
             }
             #endif
@@ -4454,7 +4460,7 @@ struct CardBackground<Content: View>: View {
     /// The light floating looks keep only a hint of the wash: full strength reads as a smudge.
     var washColor: Color {
         let s = AppState.shared
-        return baseWash.opacity(s.islandFloats && s.floatingSkin != .ink ? 0.3 : 1)
+        return baseWash.opacity(s.skinIsLight ? 0.3 : 1)
     }
 
     private var baseWash: Color {

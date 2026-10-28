@@ -494,7 +494,7 @@ final class HookServer: @unchecked Sendable {
             session: sessionId,
             projectName: isExternalAgent ? (validAgent ?? projectName) : projectName,
             cwd: isExternalAgent ? "" : cwd,
-            hostApp: hostApp, bundleId: bundleId, tmuxPane: tmuxPane)
+            hostApp: hostApp, bundleId: bundleId)
         // For sessions that carry no id, derive a unique key from pill + cwd so that
         // concurrent anonymous sessions are tracked independently in RecapStore.
         let recapSessionId = (sessionId == "unknown" || sessionId.isEmpty)
@@ -520,6 +520,16 @@ final class HookServer: @unchecked Sendable {
         // A sibling session's event must not take the pill out of its approval state.
         defer {
             if approvals.hasEntries(forPill: agentId) { state.updateTask(id: agentId, state: .approval) }
+        }
+
+        // The card shown now belongs to the session that raised it: "Open terminal" goes to
+        // that session's tmux pane, not to the oldest session that owns the pill's name.
+        // (A defer: on SessionStart the pill is only created inside the switch.)
+        defer {
+            if !isExternalAgent,
+               ["SessionStart", "UserPromptSubmit", "Notification", "Stop", "StopFailure"].contains(name) {
+                setCardPane(pill: agentId, pane: tmuxPane)
+            }
         }
 
         switch name {
@@ -910,8 +920,9 @@ final class HookServer: @unchecked Sendable {
         upsertTask(pill: pillId,
                    display: PillSessionRegistry.Display(session: sessionId, projectName: projectName,
                                                         cwd: cwd, hostApp: terminalHost?.bundleId,
-                                                        bundleId: bundleId, tmuxPane: tmuxPane),
+                                                        bundleId: bundleId),
                    working: true, externalAgent: nil)
+        setCardPane(pill: pillId, pane: tmuxPane)
         state.updateTask(id: pillId, state: .approval)
         SoundEngine.shared.play("approval")
 
@@ -1045,8 +1056,9 @@ final class HookServer: @unchecked Sendable {
         upsertTask(pill: pillId,
                    display: PillSessionRegistry.Display(session: sessionId, projectName: projectName,
                                                         cwd: cwd, hostApp: terminalHost?.bundleId,
-                                                        bundleId: bundleId, tmuxPane: tmuxPane),
+                                                        bundleId: bundleId),
                    working: true, externalAgent: nil)
+        setCardPane(pill: pillId, pane: tmuxPane)
         state.updateTask(id: pillId, state: .question)
         state.pendingQuestion = parsed
         state.isPinned = true
@@ -1099,8 +1111,15 @@ final class HookServer: @unchecked Sendable {
         } else {
             upsertWorkspaceTask(id: pill, projectName: display.projectName, cwd: display.cwd,
                                 hostApp: display.hostApp, bundleId: display.bundleId,
-                                tmuxPane: display.tmuxPane, session: display.session)
+                                session: display.session)
         }
+    }
+
+    /// Remembers which tmux pane raised the card now showing; empty (not in tmux) clears it.
+    @MainActor
+    private func setCardPane(pill: String, pane: String) {
+        guard let idx = AppState.shared.tasks.firstIndex(where: { $0.id == pill }) else { return }
+        AppState.shared.tasks[idx].cardTmuxPane = pane.isEmpty ? nil : pane
     }
 
     /// Writes the pill's name, cwd and terminal from the session that owns it: used when
@@ -1115,7 +1134,6 @@ final class HookServer: @unchecked Sendable {
         if !owner.cwd.isEmpty { state.tasks[idx].sessionCwd = owner.cwd }
         if pill == "integration_claude" { state.tasks[idx].hostApp = owner.hostApp }
         if !owner.bundleId.isEmpty { state.tasks[idx].sessionBundleId = owner.bundleId }
-        state.tasks[idx].tmuxPane = owner.tmuxPane.isEmpty ? nil : owner.tmuxPane
     }
 
     /// Updates or transiently creates a workspace pill (VS Code or Cursor) task.
@@ -1125,7 +1143,7 @@ final class HookServer: @unchecked Sendable {
     /// still running), so a second session under the same client cannot rename the card,
     /// or send "Open terminal" elsewhere, out from under the first.
     @MainActor
-    private func upsertWorkspaceTask(id: String, projectName: String, cwd: String = "", hostApp: String? = nil, bundleId: String = "", tmuxPane: String = "", session: String) {
+    private func upsertWorkspaceTask(id: String, projectName: String, cwd: String = "", hostApp: String? = nil, bundleId: String = "", session: String) {
         let state = AppState.shared
         if let idx = state.tasks.firstIndex(where: { $0.id == id }) {
             guard sessions.ownsDisplay(pill: id, session: session) else { return }
@@ -1133,7 +1151,6 @@ final class HookServer: @unchecked Sendable {
             if !cwd.isEmpty { state.tasks[idx].sessionCwd = cwd }
             if id == "integration_claude" { state.tasks[idx].hostApp = hostApp }
             if !bundleId.isEmpty { state.tasks[idx].sessionBundleId = bundleId }
-            state.tasks[idx].tmuxPane = tmuxPane.isEmpty ? nil : tmuxPane
             return
         }
         // Transient: create and insert after the main pill
@@ -1144,7 +1161,6 @@ final class HookServer: @unchecked Sendable {
                              state: .idle, steps: [], source: source, isIntegration: true)
         if id == "integration_claude" { task.hostApp = hostApp }
         if !bundleId.isEmpty { task.sessionBundleId = bundleId }
-        if !tmuxPane.isEmpty { task.tmuxPane = tmuxPane }
         if let mainIdx = state.tasks.firstIndex(where: { $0.id == state.mainPillId }) {
             state.tasks.insert(task, at: mainIdx + 1)
         } else {

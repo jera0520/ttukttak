@@ -392,7 +392,7 @@ private struct FloatingDecisionButton: View {
 @MainActor
 func ink(_ hex: String) -> Color {
     let s = AppState.shared
-    guard s.islandFloats, s.floatingSkin != .ink else { return Color(hex: hex) }
+    guard s.skinIsLight else { return Color(hex: hex) }
     let p = FloatingPalette.of(s.floatingSkin)
     switch hex.uppercased() {
     case "#F5F6F8", "#F1F2F4", "#F2F3F5", "#FFFFFF": return p.text
@@ -407,9 +407,7 @@ func ink(_ hex: String) -> Color {
     // The model picker popover is its own window, not glass: let the system popover show
     // on glass, paper on hanji.
     case "#16171B":                                   return s.floatingSkin == .hanji ? Color(hex: "#FBF7F0") : .clear
-    case "#0B0C0E":
-        if s.floatingSkin == .glass { return Color(nsColor: .windowBackgroundColor) }
-        return Color.white   // text on a primary button
+    case "#0B0C0E":                                   return Color.white   // text on a primary button (light looks only)
     case "#F4505E", "#FF8D97", "#FA2D48", "#FCA5A5": return Color(hex: "#C93C3C")
     case "#22C55E", "#34D399":                        return Color(hex: "#17895C")
     case "#F5A524", "#F7B32B":                        return Color(hex: "#C86A12")
@@ -424,6 +422,6 @@ func ink(_ hex: String) -> Color {
 @MainActor
 func inkWhite(_ opacity: Double) -> Color {
     let s = AppState.shared
-    guard s.islandFloats, s.floatingSkin != .ink else { return Color.white.opacity(opacity) }
+    guard s.skinIsLight else { return Color.white.opacity(opacity) }
     return FloatingPalette.of(s.floatingSkin).text.opacity(opacity * 0.9)
 }

@@ -9,6 +9,11 @@ enum FloatingPreview {
     static func renderIfRequested() {
         guard let dir = ProcessInfo.processInfo.environment["TT_RENDER_FLOATING_PREVIEW"],
               !dir.isEmpty else { return }
+        // TT_PREVIEW_APPEARANCE=dark|light pins the system look the cards are drawn in.
+        let dark = ProcessInfo.processInfo.environment["TT_PREVIEW_APPEARANCE"] == "dark"
+        if let mode = ProcessInfo.processInfo.environment["TT_PREVIEW_APPEARANCE"], !mode.isEmpty {
+            NSApp.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        }
         let s = AppState.shared
         s.hasNotch = false
         s.tasks = [
@@ -79,6 +84,7 @@ enum FloatingPreview {
             .padding(.horizontal, 40).padding(.vertical, theme.hangsFromTop ? 0 : 20).padding(.bottom, 20)
             .background(Color(hex: "#7F93A8"))
             .environment(\.locale, Locale(identifier: "ko"))
+            .environment(\.colorScheme, AppState.systemIsDark ? .dark : .light)
             let renderer = ImageRenderer(content: card)
             renderer.scale = 1
             if let cg = renderer.cgImage {

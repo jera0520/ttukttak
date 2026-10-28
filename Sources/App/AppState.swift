@@ -329,6 +329,18 @@ final class AppState: ObservableObject {
         mode == .expanded && FloatingLayout.inkOnlyViews.contains(view) ? .ink : floatingTheme
     }
 
+    /// The floating card is drawn in a light look (glass, hanji): dark text on it.
+    /// Glass follows the system: in dark mode it is a dark card, so the island views keep
+    /// their own light-on-dark colours (hanji stays paper in both modes).
+    var skinIsLight: Bool {
+        guard islandFloats, floatingSkin != .ink else { return false }
+        return !(floatingSkin == .glass && Self.systemIsDark)
+    }
+
+    static var systemIsDark: Bool {
+        NSApp?.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+    }
+
     // Vercel project filter — empty = watch all projects
     @Published var vercelProjectFilter: Set<String> = [] {
         didSet {
@@ -600,6 +612,7 @@ final class AppState: ObservableObject {
                 tasks[idx].steps      = []
                 tasks[idx].stepIndex  = 0
                 tasks[idx].pillBadge  = nil
+                tasks[idx].cardTmuxPane = nil
                 if let n = catalogName { tasks[idx].name = n }
             }
             return
