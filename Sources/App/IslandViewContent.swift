@@ -219,6 +219,9 @@ struct OverviewView: View {
         guard let task else { return }
         switch task.id {
         case "integration_claude":
+            #if !APPSTORE
+            if TmuxJump.jump(pane: task.tmuxPane) { return }
+            #endif
             if ClaudeHost.activate(task.hostApp) { return }
             let vscodeBundleId = "com.microsoft.VSCode"
             if let app = NSWorkspace.shared.runningApplications.first(where: { $0.bundleIdentifier == vscodeBundleId }) {
@@ -708,8 +711,10 @@ private struct OpenSessionButton: View {
         } else {
             #if !APPSTORE
             PrimaryButton("Open terminal") {
-                // The app the session runs in (its terminal, or VS Code), then any known terminal
-                if !(task?.id == "integration_claude" && ClaudeHost.activate(task?.hostApp)),
+                // A tmux session: its own Terminal window. Else the app the session runs in
+                // (its terminal, or VS Code), then any known terminal
+                if TmuxJump.jump(pane: task?.tmuxPane) {
+                } else if !(task?.id == "integration_claude" && ClaudeHost.activate(task?.hostApp)),
                    !TerminalTarget.activate(sessionBundleId: task?.sessionBundleId) {
                     NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Terminal.app"))
                 }

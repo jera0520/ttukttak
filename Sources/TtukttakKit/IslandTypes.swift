@@ -68,6 +68,7 @@ struct AgentTask: Identifiable, Equatable {
     var pillBadge: PillBadge? = nil  // alert badge shown on pill when not focused
     var sessionCwd: String?  = nil  // last known working directory (Claude Code sessions)
     var sessionBundleId: String? = nil  // app the session runs in (hook bundle_id), for "Open terminal"
+    var tmuxPane: String? = nil  // tmux pane id (hook tmux_pane): "Open terminal" jumps to its window
     var finalLine: String?   = nil  // last assistant message shown as static text after Stop (after StopFailure: the error text)
     var errorKind: String?   = nil  // StopFailure "error" (rate_limit, server_error…), names the error card
     var hostApp: String?     = nil  // bundle id of the terminal running a Claude Code session; nil = VS Code

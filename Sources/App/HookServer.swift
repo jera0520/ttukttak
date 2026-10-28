@@ -442,6 +442,7 @@ final class HookServer: @unchecked Sendable {
 
         let termProgram = payload["term_program"] as? String ?? ""
         let bundleId    = payload["bundle_id"]    as? String ?? ""
+        let tmuxPane    = payload["tmux_pane"]    as? String ?? ""
 
         // Cursor identified solely by its stable Electron bundle ID.
         // ToDesktop builds other apps too — do not match on "todesktop" alone.
@@ -493,7 +494,7 @@ final class HookServer: @unchecked Sendable {
             session: sessionId,
             projectName: isExternalAgent ? (validAgent ?? projectName) : projectName,
             cwd: isExternalAgent ? "" : cwd,
-            hostApp: hostApp, bundleId: bundleId)
+            hostApp: hostApp, bundleId: bundleId, tmuxPane: tmuxPane)
         // For sessions that carry no id, derive a unique key from pill + cwd so that
         // concurrent anonymous sessions are tracked independently in RecapStore.
         let recapSessionId = (sessionId == "unknown" || sessionId.isEmpty)
@@ -812,6 +813,7 @@ final class HookServer: @unchecked Sendable {
         let rawAgent = payload["tt_agent"] as? String ?? ""
         let termProgram = payload["term_program"] as? String ?? ""
         let bundleId    = payload["bundle_id"]    as? String ?? ""
+        let tmuxPane    = payload["tmux_pane"]    as? String ?? ""
         let isCursorEditor = bundleId.lowercased() == "com.todesktop.230313mzl4w4u92"
         let isVSCodeEditor = !isCursorEditor && (
             termProgram.lowercased().contains("vscode") ||
@@ -908,7 +910,7 @@ final class HookServer: @unchecked Sendable {
         upsertTask(pill: pillId,
                    display: PillSessionRegistry.Display(session: sessionId, projectName: projectName,
                                                         cwd: cwd, hostApp: terminalHost?.bundleId,
-                                                        bundleId: bundleId),
+                                                        bundleId: bundleId, tmuxPane: tmuxPane),
                    working: true, externalAgent: nil)
         state.updateTask(id: pillId, state: .approval)
         SoundEngine.shared.play("approval")
@@ -993,6 +995,7 @@ final class HookServer: @unchecked Sendable {
         let rawAgent    = payload["tt_agent"] as? String ?? ""
         let termProgram = payload["term_program"]  as? String ?? ""
         let bundleId    = payload["bundle_id"]     as? String ?? ""
+        let tmuxPane    = payload["tmux_pane"]     as? String ?? ""
         let isCursorEditor = bundleId.lowercased() == "com.todesktop.230313mzl4w4u92"
         let isVSCodeEditor = !isCursorEditor && (
             termProgram.lowercased().contains("vscode") ||
@@ -1042,7 +1045,7 @@ final class HookServer: @unchecked Sendable {
         upsertTask(pill: pillId,
                    display: PillSessionRegistry.Display(session: sessionId, projectName: projectName,
                                                         cwd: cwd, hostApp: terminalHost?.bundleId,
-                                                        bundleId: bundleId),
+                                                        bundleId: bundleId, tmuxPane: tmuxPane),
                    working: true, externalAgent: nil)
         state.updateTask(id: pillId, state: .question)
         state.pendingQuestion = parsed
@@ -1096,7 +1099,7 @@ final class HookServer: @unchecked Sendable {
         } else {
             upsertWorkspaceTask(id: pill, projectName: display.projectName, cwd: display.cwd,
                                 hostApp: display.hostApp, bundleId: display.bundleId,
-                                session: display.session)
+                                tmuxPane: display.tmuxPane, session: display.session)
         }
     }
 
@@ -1112,6 +1115,7 @@ final class HookServer: @unchecked Sendable {
         if !owner.cwd.isEmpty { state.tasks[idx].sessionCwd = owner.cwd }
         if pill == "integration_claude" { state.tasks[idx].hostApp = owner.hostApp }
         if !owner.bundleId.isEmpty { state.tasks[idx].sessionBundleId = owner.bundleId }
+        state.tasks[idx].tmuxPane = owner.tmuxPane.isEmpty ? nil : owner.tmuxPane
     }
 
     /// Updates or transiently creates a workspace pill (VS Code or Cursor) task.
@@ -1121,7 +1125,7 @@ final class HookServer: @unchecked Sendable {
     /// still running), so a second session under the same client cannot rename the card,
     /// or send "Open terminal" elsewhere, out from under the first.
     @MainActor
-    private func upsertWorkspaceTask(id: String, projectName: String, cwd: String = "", hostApp: String? = nil, bundleId: String = "", session: String) {
+    private func upsertWorkspaceTask(id: String, projectName: String, cwd: String = "", hostApp: String? = nil, bundleId: String = "", tmuxPane: String = "", session: String) {
         let state = AppState.shared
         if let idx = state.tasks.firstIndex(where: { $0.id == id }) {
             guard sessions.ownsDisplay(pill: id, session: session) else { return }
@@ -1129,6 +1133,7 @@ final class HookServer: @unchecked Sendable {
             if !cwd.isEmpty { state.tasks[idx].sessionCwd = cwd }
             if id == "integration_claude" { state.tasks[idx].hostApp = hostApp }
             if !bundleId.isEmpty { state.tasks[idx].sessionBundleId = bundleId }
+            state.tasks[idx].tmuxPane = tmuxPane.isEmpty ? nil : tmuxPane
             return
         }
         // Transient: create and insert after the main pill
@@ -1139,6 +1144,7 @@ final class HookServer: @unchecked Sendable {
                              state: .idle, steps: [], source: source, isIntegration: true)
         if id == "integration_claude" { task.hostApp = hostApp }
         if !bundleId.isEmpty { task.sessionBundleId = bundleId }
+        if !tmuxPane.isEmpty { task.tmuxPane = tmuxPane }
         if let mainIdx = state.tasks.firstIndex(where: { $0.id == state.mainPillId }) {
             state.tasks.insert(task, at: mainIdx + 1)
         } else {
@@ -3365,6 +3371,7 @@ def main():
         payload['tt_kind'] = 'ask_user_question'
         env = os.environ
         payload.setdefault('term_program', env.get('TERM_PROGRAM', ''))
+        payload.setdefault('tmux_pane', env.get('TMUX_PANE', ''))
         payload.setdefault('iterm_session_id', env.get('ITERM_SESSION_ID', ''))
         payload.setdefault('term_session_id', env.get('TERM_SESSION_ID', ''))
         payload.setdefault('bundle_id', env.get('__CFBundleIdentifier', ''))
@@ -3432,6 +3439,7 @@ def main():
     # Enrich with terminal context
     env = os.environ
     payload.setdefault('term_program', env.get('TERM_PROGRAM', ''))
+    payload.setdefault('tmux_pane', env.get('TMUX_PANE', ''))
     payload.setdefault('iterm_session_id', env.get('ITERM_SESSION_ID', ''))
     payload.setdefault('term_session_id', env.get('TERM_SESSION_ID', ''))
     payload.setdefault('bundle_id', env.get('__CFBundleIdentifier', ''))
@@ -3672,6 +3680,7 @@ def main():
         payload['tt_kind'] = 'ask_user_question'
         env = os.environ
         payload.setdefault('term_program', env.get('TERM_PROGRAM', ''))
+        payload.setdefault('tmux_pane', env.get('TMUX_PANE', ''))
         payload.setdefault('iterm_session_id', env.get('ITERM_SESSION_ID', ''))
         payload.setdefault('term_session_id', env.get('TERM_SESSION_ID', ''))
         payload.setdefault('bundle_id', env.get('__CFBundleIdentifier', ''))
@@ -3738,6 +3747,7 @@ def main():
 
     env = os.environ
     payload.setdefault('term_program', env.get('TERM_PROGRAM', ''))
+    payload.setdefault('tmux_pane', env.get('TMUX_PANE', ''))
     payload.setdefault('iterm_session_id', env.get('ITERM_SESSION_ID', ''))
     payload.setdefault('term_session_id', env.get('TERM_SESSION_ID', ''))
     payload.setdefault('bundle_id', env.get('__CFBundleIdentifier', ''))

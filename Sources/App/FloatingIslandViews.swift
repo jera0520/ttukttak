@@ -124,6 +124,7 @@ struct FloatingCardBackground: View {
     let height: CGFloat
     let cornerRadius: CGFloat
     let topRadius: CGFloat
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let shape = IslandShape(width: width, height: height, cornerRadius: cornerRadius, topRadius: topRadius)
@@ -133,15 +134,15 @@ struct FloatingCardBackground: View {
                 .shadow(color: .black.opacity(0.28), radius: 14, y: 6)
         case .glass:
             if #available(macOS 26.0, *) {
+                let tintColor = colorScheme == .dark ? Color.black.opacity(0.45) : Color.white.opacity(0.45)
                 Color.clear
                     .frame(width: width, height: height)
-                    // A little white keeps the text readable over dark windows too.
-                    .glassEffect(.regular.tint(Color.white.opacity(0.45)), in: shape)
-                    .shadow(color: .black.opacity(0.12), radius: 16, y: 6)
+                    .glassEffect(.regular.tint(tintColor), in: shape)
+                    .shadow(color: .black.opacity(0.2), radius: 16, y: 6)
             } else {
                 shape.fill(.regularMaterial)
-                    .overlay(shape.stroke(Color.white.opacity(0.35), lineWidth: 1))
-                    .shadow(color: .black.opacity(0.15), radius: 16, y: 6)
+                    .overlay(shape.stroke(colorScheme == .dark ? Color.white.opacity(0.14) : Color.white.opacity(0.35), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.18), radius: 16, y: 6)
             }
         case .hanji:
             shape.fill(Color(hex: "#FBF7EF"))
@@ -406,7 +407,9 @@ func ink(_ hex: String) -> Color {
     // The model picker popover is its own window, not glass: let the system popover show
     // on glass, paper on hanji.
     case "#16171B":                                   return s.floatingSkin == .hanji ? Color(hex: "#FBF7F0") : .clear
-    case "#0B0C0E":                                   return Color.white   // text on a primary button
+    case "#0B0C0E":
+        if s.floatingSkin == .glass { return Color(nsColor: .windowBackgroundColor) }
+        return Color.white   // text on a primary button
     case "#F4505E", "#FF8D97", "#FA2D48", "#FCA5A5": return Color(hex: "#C93C3C")
     case "#22C55E", "#34D399":                        return Color(hex: "#17895C")
     case "#F5A524", "#F7B32B":                        return Color(hex: "#C86A12")
