@@ -14,8 +14,8 @@ set -euo pipefail
 APP_NAME=Ttukttak                   # executable and process name (ASCII: pkill -x, logs, folders)
 DISPLAY_NAME=뚝딱                   # .app folder, CFBundleName/DisplayName, {APP} in the texts
 BUNDLE_ID=kr.jinhyeon.ttukttak      # must differ from Coucou's fr.louisraille.NotchBuddy
-VERSION=0.2.1                       # CFBundleShortVersionString
-BUILD=4                             # CFBundleVersion
+VERSION=0.2.2                       # CFBundleShortVersionString
+BUILD=5                             # CFBundleVersion
 PET_NAME=복슬깨비                   # {PET} in the translation overlays; replaces "Mochi" in the catalog
 # ---------------------------------------------------------------------------
 MIN_MACOS=15.0
